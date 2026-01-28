@@ -1,8 +1,11 @@
 import os
 import re
+from zipfile import ZipFile
 
 import requests
 from bs4 import BeautifulSoup
+
+from constants import *
 
 
 def get_html(url):
@@ -18,11 +21,27 @@ def get_html(url):
         print("Error: ", e)
 
 
+def unzip_files(file_paths):
+    for file in file_paths:
+        with ZipFile(file, "r") as zObject:
+            zObject.extractall(path=DOWNLOAD_DIR)
+
+
+def get_local_download_paths():
+    files_list = os.listdir(DOWNLOAD_DIR)
+    abs_src = os.path.abspath(DOWNLOAD_DIR)
+
+    file_paths = []
+    for file in files_list:
+        file_paths.append(os.path.join(abs_src, file))
+
+    return file_paths
+
+
 def download_files(files, file_names):
     for i in range(0, len(files), 1):
         download = requests.get(files[i])
-        file_path = os.path.join("./download", file_names[i])
-        print("File path: ", file_path)
+        file_path = os.path.join(DOWNLOAD_DIR, file_names[i])
 
         if download.status_code == 200:
             with open(file_path, "wb") as file:
@@ -71,3 +90,20 @@ def extract_last_year(table_rows):
             extracted_years.append(str)
 
     return extracted_years[-1:][0]
+
+
+def download_last_three_files():
+    page = get_html(URL)
+
+    build_url = get_last_year_url(page, URL)
+
+    years_page_html = get_html(build_url)
+
+    files_url, files_name = get_files_url(years_page_html, build_url)
+
+    download_files(files_url, files_name)
+
+    file_paths = get_local_download_paths()
+    print("File paths: ", file_paths)
+
+    unzip_files(file_paths)
