@@ -9,4 +9,5 @@ wheels/
 # Virtual environments
 .venv
 download/
+csv/
 consolidado_despesas.*

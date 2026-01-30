@@ -1,4 +1,3 @@
-import csv
 import os
 import re
 from zipfile import ZipFile
@@ -120,6 +119,7 @@ def download_last_three_files():
         download_files(files_url, files_name)
 
     csv_file_paths = get_local_csv_files()
+    print("CSV FILES: ", csv_file_paths)
 
     if len(csv_file_paths) == 0:
         zip_file_paths = get_local_zip_files()
@@ -127,3 +127,19 @@ def download_last_three_files():
         csv_file_paths = get_local_csv_files()
 
     parse_csv(csv_file_paths)
+
+
+def get_data():
+    filename = os.path.basename(RELATORIO_URL)
+    file_path = os.path.join(CSV_DIR, filename)
+
+    download = requests.get(RELATORIO_URL)
+
+    if download.status_code == 200:
+        with open(file_path, "wb") as file:
+            file.write(download.content)
+        print(f"File downloaded successfully at {os.path.abspath(file_path)}")
+    else:
+        print("Failed to download file")
+
+    return file_path
