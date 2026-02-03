@@ -6,8 +6,10 @@ from csv_parsing import aggregate, realize_join_ans
 
 
 def main():
-    os.mkdir(CSV_DIR)
-    os.mkdir(DOWNLOAD_DIR)
+    if not os.path.exists(CSV_DIR):
+        os.mkdir(CSV_DIR)
+    if not os.path.exists(DOWNLOAD_DIR):
+        os.mkdir(DOWNLOAD_DIR)
     download_last_three_files()
 
     files_dir = os.listdir(CSV_DIR)
