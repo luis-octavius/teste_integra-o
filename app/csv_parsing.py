@@ -3,7 +3,7 @@ import zipfile as ZipFile
 
 import pandas as pd
 
-from constants import CSV_DIR, DOWNLOAD_DIR
+from constants import CSV_DIR
 
 
 def parse_csv(csv_files_path, output_file=CSV_DIR + "consolidado_despesas.csv"):
@@ -26,23 +26,25 @@ def parse_csv(csv_files_path, output_file=CSV_DIR + "consolidado_despesas.csv"):
         df = pd.read_csv(file, sep=";", encoding="utf-8")
 
         if "VL_SALDO_INICIAL" in df.columns:
-            df["VL_SALDO_INICIAL"] = (
+            df["VL_SALDO_INICIAL"] = pd.to_numeric(
                 df["VL_SALDO_INICIAL"]
                 .astype(str)
                 .str.replace(".", "")
-                .str.replace(",", ".")
-                .astype(float)
+                .str.replace(",", "."),
+                errors="coerce",
             )
         if "VL_SALDO_FINAL" in df.columns:
-            df["VL_SALDO_FINAL"] = (
+            df["VL_SALDO_FINAL"] = pd.to_numeric(
                 df["VL_SALDO_FINAL"]
                 .astype(str)
-                .replace(".", "")
-                .str.replace(",", ".")
-                .astype(float)
+                .str.replace(".", "")
+                .str.replace(",", "."),
+                errors="coerce",
             )
 
-        df["VALOR_DESPESAS"] = df["VL_SALDO_FINAL"] - df["VL_SALDO_INICIAL"]
+        df["VALOR_DESPESAS"] = (
+            df["VL_SALDO_FINAL"] / 1_000_000
+        )  # Scale down by 1 million
 
         data = {
             "REG_ANS": df["REG_ANS"] if "REG_ANS" in df.columns else "",
@@ -74,6 +76,7 @@ def realize_join_ans(
     consolidated_path, cadastro_path, output_path=CSV_DIR + "joined.csv"
 ):
     df_expenses = pd.read_csv(consolidated_path, sep=";")
+
     df_cadastro = pd.read_csv(cadastro_path, sep=";")
 
     df_cadastro = df_cadastro.rename(columns={"REGISTRO_OPERADORA": "REG_ANS"})
@@ -81,6 +84,15 @@ def realize_join_ans(
     df_cadastro_redux = df_cadastro[
         ["REG_ANS", "CNPJ", "Razao_Social", "Modalidade", "UF"]
     ]
+
+    # Check for duplicate REG_ANS in df_cadastro_redux before merging
+    if df_cadastro_redux["REG_ANS"].duplicated().any():
+        num_duplicates = df_cadastro_redux["REG_ANS"].duplicated().sum()
+        print(
+            f"Warning: Found {num_duplicates} duplicate REG_ANS entries in df_cadastro_redux."
+        )
+        print("This might lead to inflated values due to row duplication during merge.")
+        # Optionally, remove duplicates if desired, e.g., df_cadastro_redux = df_cadastro_redux.drop_duplicates(subset=['REG_ANS'])
 
     df_result = pd.merge(df_expenses, df_cadastro_redux, on="REG_ANS", how="left")
 
@@ -97,13 +109,25 @@ def realize_join_ans(
 def aggregate(csv_file):
     df = pd.read_csv(csv_file, sep=";")
 
-    df["VALOR_DESPESAS"] = pd.to_numeric(
-        df["VALOR_DESPESAS"].astype(str).str.replace(".", "").str.replace(",", "."),
-        errors="coerce",
-    )
+    # Explicitly ensure VALOR_DESPESAS is numeric
+    df["VALOR_DESPESAS"] = pd.to_numeric(df["VALOR_DESPESAS"], errors="coerce")
+
+    # df["VALOR_DESPESAS"] = pd.to_numeric(
+    #     df["VALOR_DESPESAS"].astype(str).str.replace(".", "").str.replace(",", "."),
+    #     errors="coerce",
+    # )
+
+    # Convert CD_CONTA_CONTABIL to string to allow length calculation
+    df["CD_CONTA_CONTABIL"] = df["CD_CONTA_CONTABIL"].astype(str)
+
+    # Determine the maximum length of CD_CONTA_CONTABIL
+    max_len = df["CD_CONTA_CONTABIL"].str.len().max()
+
+    # Filter to keep only the most granular accounts
+    df_filtered = df[df["CD_CONTA_CONTABIL"].str.len() == max_len].copy()
 
     print("\nAgrupando por RazaoSocial e UF...")
-    groups = df.groupby(["Razao_Social", "UF"])
+    groups = df_filtered.groupby(["Razao_Social", "UF"])
 
     print("Calculando total de despesas...")
     total_operator = groups["VALOR_DESPESAS"].sum().reset_index()
@@ -112,7 +136,7 @@ def aggregate(csv_file):
     print("Calculando média por trimestre...")
 
     total_trimester = (
-        df.groupby(["Razao_Social", "UF", "TRIMESTRE"])["VALOR_DESPESAS"]
+        df_filtered.groupby(["Razao_Social", "UF", "TRIMESTRE"])["VALOR_DESPESAS"]
         .sum()
         .reset_index()
     )
@@ -134,6 +158,11 @@ def aggregate(csv_file):
     print("Consolidando resultados...")
     result = pd.merge(total_operator, media_trimester, on=["Razao_Social", "UF"])
     result = pd.merge(result, desvio_padrao, on=["Razao_Social", "UF"])
+
+    # Round monetary values to 2 decimal places for presentation
+    result["TOTAL_DESPESAS"] = result["TOTAL_DESPESAS"].round(2)
+    result["MEDIA_TRIMESTRAL"] = result["MEDIA_TRIMESTRAL"].round(2)
+    result["DESVIO_PADRAO"] = result["DESVIO_PADRAO"].round(2)
 
     result["COEFICIENTE_VARIACAO"] = (
         result["DESVIO_PADRAO"] / result["MEDIA_TRIMESTRAL"]
