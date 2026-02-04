@@ -73,7 +73,7 @@
 
             <!-- UF Chart -->
             <div class="chart-card">
-                <h3>Operadoras por UF</h3>
+                <h3>Despesas por UF</h3>
                 <UFChart :data="ufChartData" />
             </div>
         </div>
@@ -89,6 +89,13 @@ import ErrorAlert from "@/components/ErrorAlert.vue";
 import UFChart from "@/components/UFChart.vue";
 
 const store = useOperadorasStore();
+
+const ufChartData = computed(() => {
+    if (store.estatisticas && store.estatisticas.distribuicao_uf) {
+        return store.estatisticas.distribuicao_uf;
+    }
+    return [];
+});
 
 onMounted(() => {
     store.fetchEstatisticas();

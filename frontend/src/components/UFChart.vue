@@ -10,9 +10,9 @@ import Chart from 'chart.js/auto'
 
 const props = defineProps({
   data: {
-    type: Object,
+    type: Array,
     required: true,
-    default: () => ({})
+    default: () => []
   }
 })
 
@@ -24,16 +24,20 @@ const renderChart = () => {
     chartInstance.destroy()
   }
 
+  if (!props.data || props.data.length === 0) {
+    return;
+  }
+
   const ctx = ufChartCanvas.value.getContext('2d')
-  const labels = Object.keys(props.data)
-  const values = Object.values(props.data)
+  const labels = props.data.map(item => item.uf)
+  const values = props.data.map(item => parseFloat(item.total))
 
   chartInstance = new Chart(ctx, {
     type: 'bar', // ou 'pie', 'doughnut'
     data: {
       labels: labels,
       datasets: [{
-        label: 'Número de Operadoras',
+        label: 'Total de Despesas por UF',
         data: values,
         backgroundColor: [
           'rgba(255, 99, 132, 0.6)',
@@ -70,7 +74,7 @@ const renderChart = () => {
           beginAtZero: true,
           title: {
             display: true,
-            text: 'Número de Operadoras'
+            text: 'Total de Despesas (R$)'
           }
         },
         x: {
@@ -86,7 +90,7 @@ const renderChart = () => {
         },
         title: {
           display: false,
-          text: 'Distribuição de Operadoras por UF'
+          text: 'Distribuição de Despesas por UF'
         }
       }
     }

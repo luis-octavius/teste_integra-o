@@ -1,12 +1,9 @@
 <template>
-  <div>
-    <h1>Welcome to ANS Analytics</h1>
-    <p>This is the home page.</p>
-  </div>
+    <div>
+        <h1>Welcome to ANS Analytics</h1>
+    </div>
 </template>
 
-<script setup>
-</script>
+<script setup></script>
 
-<style scoped>
-</style>
+<style scoped></style>
